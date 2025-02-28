@@ -1,5 +1,4 @@
-import { FactorInstance } from 'twilio/lib/rest/verify/v2/service/entity/factor';
-import { User } from '../models';
+import { User } from '../models/user.model';
 import TwilioService from './common/twilio.service';
 import Logger from '../config/logger';
 import { UserDocument } from '../models/user.model';
@@ -87,17 +86,16 @@ async function generateQRCode(user: UserDocument) {
     if (user.is2FAEnabled) {
         return { success: true, qr_code: null };
     }
-    const factorsList = await TwilioService.listAllFactor(user.id);
-
-    const oldFactor = factorsList.find(
-        (item: FactorInstance) => (item.factorType = 'totp')
-    );
-    if (oldFactor) {
-        await TwilioService.deleteFactor(user.id, oldFactor.sid);
+    if (user.twilioFactor) {
+        const dataURL = await qrcode.toDataURL(user.twilioFactor?.binding?.uri);
+        return { success: true, qr_code: dataURL };
     }
-
     const newFactor = await TwilioService.createFactor(user.id, user.email);
-
+    const UserDoc = await User.findById(user.id);
+    if (UserDoc) {
+        UserDoc.twilioFactor = newFactor.toJSON();
+        await UserDoc.save();
+    }
     const qr_url = newFactor.binding.uri;
     const dataURL = await qrcode.toDataURL(qr_url);
     return { success: true, qr_code: dataURL };
@@ -109,28 +107,14 @@ async function verifyQRCode(user: UserDocument, token: string) {
             throw { success: false, message: 'Token is required.' };
         }
 
-        if (!user) {
-            throw { success: false, message: 'User not found' };
-        }
-        const factors = await TwilioService.listAllFactor(user.id);
-
-        const userFactor = factors.find((item) => item.factorType === 'totp');
+        const userFactor = user.twilioFactor;
         if (userFactor?.status !== 'verified') {
             const factor = await TwilioService.verifyFactor(
                 user.id,
-                userFactor?.sid as string,
+                userFactor?.sid,
                 token
             );
-            if (factor.status === 'verified') {
-                await updateMFAStatus(user);
-                const tokens = await tokenService.generateAuthTokens(user);
-                return {
-                    success: true,
-                    user,
-                    tokens,
-                    message: '2FA verified successfully',
-                };
-            } else {
+            if (factor.status !== 'verified') {
                 return { success: false, message: 'Invalid Token' };
             }
         }
@@ -143,9 +127,11 @@ async function verifyQRCode(user: UserDocument, token: string) {
         if (challenge.status === 'approved') {
             await updateMFAStatus(user);
             const tokens = await tokenService.generateAuthTokens(user);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { twilioFactor, ...rest } = user;
             return {
                 success: true,
-                user,
+                user: rest,
                 tokens,
                 message: '2FA verified successfully',
             };

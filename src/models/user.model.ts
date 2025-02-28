@@ -4,12 +4,13 @@ import mongoose, {
     ObjectId,
     Schema,
     HydratedDocument,
+    SchemaDefinition,
 } from 'mongoose';
 import validator from 'validator';
 import bcrypt from 'bcryptjs';
 import toJSON from './plugins/toJSON.plugin';
 import paginate from './plugins/paginate.plugin';
-import { Role } from '../types/user';
+import { NewFactorResource, Role } from '../types/user';
 
 interface UserDocument extends Document {
     _id: mongoose.Types.ObjectId;
@@ -24,6 +25,7 @@ interface UserDocument extends Document {
     role: string;
     isEmailVerified: boolean;
     is2FAEnabled: boolean;
+    twilioFactor: NewFactorResource;
     isPasswordMatch(password: string): Promise<boolean>;
 }
 
@@ -32,7 +34,7 @@ interface UserModel extends Model<UserDocument> {
     paginate: Function;
 }
 
-const userSchemaDefinition = {
+const userSchemaDefinition: SchemaDefinition<UserDocument> = {
     firstname: {
         type: String,
         required: true,
@@ -82,6 +84,9 @@ const userSchemaDefinition = {
     is2FAEnabled: {
         type: Boolean,
         default: false,
+    },
+    twilioFactor: {
+        type: Schema.Types.Mixed,
     },
 };
 

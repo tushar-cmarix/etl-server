@@ -9,12 +9,16 @@ import {
 } from '../services';
 import { Role } from '../types/user';
 import mfaService from '../services/mfa.service';
+import ApiError from '../utils/ApiError';
 
 const register = catchAsync(async (req: Request, res: Response) => {
     const user = await userService.createUser({ ...req.body, role: Role.USER });
     const verifyEmailToken = await tokenService.generateVerifyEmailToken(user);
     await emailService.SendVerificationMail(user.email, verifyEmailToken);
-    res.status(httpStatus.CREATED).send({ user });
+    res.status(httpStatus.CREATED).send({
+        success: true,
+        message: 'Registered successfully',
+    });
 });
 
 const login = catchAsync(async (req: Request, res: Response) => {
@@ -23,8 +27,8 @@ const login = catchAsync(async (req: Request, res: Response) => {
         email,
         password
     );
-    const tokens = await tokenService.generateAuthTokens(user);
-    res.send({ user, tokens });
+    const token = await tokenService.generateVerify2FAToken(user);
+    res.status(httpStatus.OK).send({ token });
 });
 
 const logout = catchAsync(async (req: Request, res: Response) => {
@@ -38,6 +42,14 @@ const refreshTokens = catchAsync(async (req: Request, res: Response) => {
 });
 
 const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+    const email = req.body.email;
+    const user = await userService.getUserByEmail(email);
+    if (!user) {
+        throw new ApiError(
+            httpStatus.NOT_FOUND,
+            'Please provide a registered email'
+        );
+    }
     const resetPasswordToken = await tokenService.generateResetPasswordToken(
         req.body.email
     );
@@ -46,8 +58,8 @@ const forgotPassword = catchAsync(async (req: Request, res: Response) => {
         resetPasswordToken
     );
     res.status(httpStatus.OK).send({
-        body: req.body.email,
-        resetPasswordToken,
+        success: true,
+        message: 'Reset-Password mail sent successfully',
     });
 });
 

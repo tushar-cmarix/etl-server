@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError';
 import catchAsync from '../utils/catchAsync';
 import { userService } from '../services';
 import { Request, Response } from 'express';
+
 const createUser = catchAsync(async (req: Request, res: Response) => {
     const user = await userService.createUser(req.body);
     res.status(httpStatus.CREATED).send(user);

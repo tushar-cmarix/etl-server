@@ -61,8 +61,11 @@ async function createChallenge(
         });
 }
 
-async function deleteFactor(entity: string, factorSid: string): Promise<void> {
-    await twilioClient.verify.v2
+async function deleteFactor(
+    entity: string,
+    factorSid: string
+): Promise<boolean> {
+    return await twilioClient.verify.v2
         .services(TWILIO_SERVICE_SID)
         .entities(entity)
         .factors(factorSid)

@@ -11,10 +11,16 @@ const loginUserWithEmailAndPassword = async (
     password: string
 ): Promise<UserDocument> => {
     const user = await userService.getUserByEmail(email);
-    if (!user || !(await user.isPasswordMatch(password))) {
+    if (!user) {
         throw new ApiError(
-            httpStatus.UNAUTHORIZED,
-            'Incorrect email or password'
+            httpStatus.NOT_FOUND,
+            'Please provide a registered email'
+        );
+    }
+    if (!(await user.isPasswordMatch(password))) {
+        throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            'Please provide valid credentials'
         );
     }
     return user;
@@ -90,9 +96,9 @@ const verifyEmail = async (verifyEmailToken: string) => {
         });
         await userService.updateUserById(user.id, { isEmailVerified: true });
 
-        const tokens = await tokenService.generateAuthTokens(user);
+        const token = await tokenService.generateVerify2FAToken(user);
         return {
-            tokens,
+            token,
             user,
         };
     } catch (error) {

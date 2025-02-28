@@ -3,12 +3,13 @@ import moment, { Moment } from 'moment';
 import httpStatus from 'http-status';
 import config from '../config/config';
 import userService from './user.service';
-import { Token } from '../models';
+import { Token } from '../models/token.model';
 import ApiError from '../utils/ApiError';
 import { TokenTypes } from '../config/tokens';
 import mongoose from 'mongoose';
 import { TokenDocument } from '../models/token.model';
 import { UserDocument } from '../models/user.model';
+import { AuthTokens } from '../types/token';
 
 const generateToken = (
     userId: mongoose.Types.ObjectId,
@@ -59,7 +60,7 @@ const verifyToken = async (
     return tokenDoc;
 };
 
-const generateAuthTokens = async (user: UserDocument): Promise<object> => {
+const generateAuthTokens = async (user: UserDocument): Promise<AuthTokens> => {
     const accessTokenExpires = moment().add(
         config.jwt.accessExpirationMinutes,
         'minutes'
@@ -145,8 +146,23 @@ const generateVerifyEmailToken = async (
     return verifyEmailToken;
 };
 
+const generateVerify2FAToken = async (user: UserDocument): Promise<string> => {
+    const expires = moment().add(
+        config.jwt.verifyEmailExpirationMinutes,
+        'minutes'
+    );
+    const verify2FAToken = generateToken(
+        user._id,
+        expires,
+        TokenTypes.VERIFY_2FA
+    );
+    await saveToken(verify2FAToken, user._id, expires, TokenTypes.VERIFY_2FA);
+    return verify2FAToken;
+};
+
 export default {
     generateToken,
+    generateVerify2FAToken,
     saveToken,
     verifyToken,
     generateAuthTokens,
